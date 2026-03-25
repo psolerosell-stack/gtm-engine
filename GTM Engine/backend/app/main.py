@@ -96,12 +96,16 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 from app.routers.auth import router as auth_router
 from app.routers.partners import router as partners_router
 from app.routers.opportunities import router as opportunities_router
+from app.routers.accounts import router as accounts_router
+from app.routers.scoring import router as scoring_router
 
 API_PREFIX = "/api/v1"
 
 app.include_router(auth_router, prefix=API_PREFIX)
+app.include_router(accounts_router, prefix=API_PREFIX)
 app.include_router(partners_router, prefix=API_PREFIX)
 app.include_router(opportunities_router, prefix=API_PREFIX)
+app.include_router(scoring_router, prefix=API_PREFIX)
 
 
 # ── Health check ─────────────────────────────────────────────────────────────

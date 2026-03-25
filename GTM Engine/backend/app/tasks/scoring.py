@@ -22,11 +22,14 @@ async def _recalculate_all_async() -> dict:
     from app.database import get_session_factory
     from app.models.partner import Partner
     from app.services.partner import PartnerService
+    from app.services.scoring import engine as scoring_engine
 
     factory = get_session_factory()
     results = {"success": 0, "failed": 0, "skipped": 0}
 
+    # Load active weights once for the whole batch
     async with factory() as db:
+        weights = await scoring_engine.load_active_weights(db)
         result = await db.execute(
             select(Partner.id).where(Partner.deleted_at.is_(None))
         )
@@ -36,7 +39,7 @@ async def _recalculate_all_async() -> dict:
         try:
             async with factory() as db:
                 service = PartnerService(db)
-                await service.recalculate_score(partner_id)
+                await service.recalculate_score(partner_id, weights=weights)
             results["success"] += 1
         except Exception as exc:
             logger.error("score_recalc_failed", partner_id=str(partner_id), error=str(exc))

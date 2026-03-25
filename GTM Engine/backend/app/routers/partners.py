@@ -15,7 +15,8 @@ from app.schemas.partner import (
     ScoreBreakdown,
     ScoreHistoryRead,
 )
-from app.services.partner import PartnerService, compute_icp_score, tier_from_score
+from app.services.partner import PartnerService
+from app.services.scoring import compute_icp_score, tier_from_score
 
 router = APIRouter(prefix="/partners", tags=["partners"])
 
@@ -134,15 +135,18 @@ async def recalculate_partner_score(
     db: DBSession,
 ) -> ScoreBreakdown:
     """Force-recalculate and persist the ICP score."""
+    from app.services.scoring import engine as scoring_engine
+
     service = PartnerService(db)
-    result = await service.recalculate_score(partner_id)
+    weights = await scoring_engine.load_active_weights(db)
+    result = await service.recalculate_score(partner_id, weights=weights)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
 
     partner = await service.get(partner_id, load_account=True)
     account = partner.account if hasattr(partner, "account") else None
-    score, breakdown = compute_icp_score(partner, account)
-    tier = tier_from_score(score)
+    score, breakdown = scoring_engine.score(partner, account, weights)
+    tier = scoring_engine.tier(score)
     return ScoreBreakdown(total=score, tier=tier, dimensions=breakdown)
 
 
