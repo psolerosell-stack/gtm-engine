@@ -10,6 +10,8 @@ import {
   Heart,
   Search,
   Megaphone,
+  TrendingUp,
+  DollarSign,
   LogOut,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
@@ -24,6 +26,8 @@ const NAV = [
   { label: "Onboarding", to: "/onboarding", icon: BookOpen },
   { label: "Enablement", to: "/enablement", icon: Zap },
   { label: "Expansion", to: "/expansion", icon: ArrowUpCircle },
+  { label: "Analytics", to: "/analytics", icon: TrendingUp },
+  { label: "Revenue", to: "/revenue", icon: DollarSign },
 ];
 
 export function Sidebar() {

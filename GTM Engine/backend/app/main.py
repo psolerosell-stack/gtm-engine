@@ -113,6 +113,8 @@ from app.routers.scoring import router as scoring_router
 from app.routers.ai import router as ai_router
 from app.routers.workflows import router as workflows_router
 from app.routers.activities import router as activities_router
+from app.routers.revenue import router as revenue_router
+from app.routers.analytics import router as analytics_router
 
 API_PREFIX = "/api/v1"
 
@@ -124,6 +126,8 @@ app.include_router(scoring_router, prefix=API_PREFIX)
 app.include_router(ai_router, prefix=API_PREFIX)
 app.include_router(workflows_router, prefix=API_PREFIX)
 app.include_router(activities_router, prefix=API_PREFIX)
+app.include_router(revenue_router, prefix=API_PREFIX)
+app.include_router(analytics_router, prefix=API_PREFIX)
 
 
 # ── Health check ─────────────────────────────────────────────────────────────

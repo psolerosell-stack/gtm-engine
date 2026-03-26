@@ -179,3 +179,121 @@ export const opportunitiesApi = {
   pipelineSummary: () =>
     apiClient.get<Record<string, { count: number; total_arr: number }>>("/opportunities/pipeline/summary"),
 };
+
+// ── Revenue ───────────────────────────────────────────────────────────────────
+
+export interface Revenue {
+  id: string;
+  partner_id?: string;
+  opportunity_id?: string;
+  arr: number;
+  mrr: number;
+  date_closed: string;
+  type: string;
+  attribution?: string;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RevenueCreate {
+  partner_id?: string;
+  opportunity_id?: string;
+  arr: number;
+  mrr?: number;
+  date_closed: string;
+  type?: string;
+  attribution?: string;
+  currency?: string;
+}
+
+export interface MonthlyTrend {
+  month: string;
+  arr: number;
+  mrr: number;
+  count: number;
+}
+
+export interface RevenueSummary {
+  total_arr: number;
+  total_mrr: number;
+  record_count: number;
+  arr_by_type: Record<string, number>;
+  arr_by_currency: Record<string, number>;
+  monthly_trends: MonthlyTrend[];
+}
+
+export const revenueApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Revenue>>("/revenue", { params }),
+  get: (id: string) => apiClient.get<Revenue>(`/revenue/${id}`),
+  summary: () => apiClient.get<RevenueSummary>("/revenue/summary"),
+  create: (data: RevenueCreate) => apiClient.post<Revenue>("/revenue", data),
+  delete: (id: string) => apiClient.delete(`/revenue/${id}`),
+};
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+export interface OverviewKPIs {
+  total_partners: number;
+  active_partners: number;
+  total_arr: number;
+  arr_last_30d: number;
+  open_pipeline_arr: number;
+  open_deals: number;
+  leads_this_month: number;
+  avg_icp_score: number;
+}
+
+export interface FunnelStage {
+  stage: string;
+  count: number;
+  arr: number;
+}
+
+export interface PartnerPerformance {
+  partner_id: string;
+  partner_name: string;
+  tier: string;
+  icp_score: number;
+  total_arr: number;
+  opportunity_count: number;
+  active_opportunities: number;
+}
+
+export interface MonthlyARR {
+  month: string;
+  arr: number;
+  mrr: number;
+  count: number;
+}
+
+export interface BriefingContent {
+  headline?: string;
+  narrative?: string | null;
+  urgent?: string[];
+  opportunities?: string[];
+  funnel_health?: { status: string; note: string };
+  top_channels?: string[];
+  insights?: string[];
+  data_snapshot?: Record<string, number>;
+}
+
+export interface DailyBriefing {
+  id: string;
+  date: string;
+  content: string;   // raw JSON string
+  generated_at: string;
+  posted_to_slack: boolean;
+}
+
+export const analyticsApi = {
+  overview: () => apiClient.get<OverviewKPIs>("/analytics/overview"),
+  funnel: () => apiClient.get<FunnelStage[]>("/analytics/funnel"),
+  partnerPerformance: (limit = 10) =>
+    apiClient.get<PartnerPerformance[]>("/analytics/partners/performance", { params: { limit } }),
+  revenueTrends: (months = 12) =>
+    apiClient.get<MonthlyARR[]>("/analytics/revenue/trends", { params: { months } }),
+  briefingToday: () => apiClient.get<DailyBriefing>("/analytics/briefing/today"),
+  generateBriefing: () => apiClient.post<DailyBriefing>("/analytics/briefing/generate"),
+};

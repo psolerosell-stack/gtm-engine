@@ -11,6 +11,8 @@ import { CoSelling } from "@/pages/CoSelling";
 import { Onboarding } from "@/pages/Onboarding";
 import { Enablement } from "@/pages/Enablement";
 import { Expansion } from "@/pages/Expansion";
+import Analytics from "@/pages/Analytics";
+import Revenue from "@/pages/Revenue";
 import { useAuthStore } from "@/stores/auth";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -46,6 +48,8 @@ export default function App() {
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="enablement" element={<Enablement />} />
           <Route path="expansion" element={<Expansion />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="revenue" element={<Revenue />} />
         </Route>
         <Route path="*" element={<Navigate to="/pipeline" replace />} />
       </Routes>

@@ -38,21 +38,32 @@ def generate_daily_briefing(self) -> dict:
                 logger.info("daily_briefing_already_exists", date=today)
                 return {"status": "skipped", "date": today}
 
-        # Placeholder: real implementation in Layer 6
         import json
 
-        briefing_content = json.dumps(
-            {
-                "urgent": [],
-                "opportunities": [],
-                "funnel_health": {},
-                "top_channels": [],
-                "generated_at": today,
-            }
-        )
-
         async with factory() as db:
-            briefing = DailyBriefing(date=today, content=briefing_content)
+            from app.services.analytics import AnalyticsService
+            svc = AnalyticsService(db)
+            data = await svc.get_briefing_data()
+
+            content: str
+            try:
+                from app.services.ai import AIService
+                from app.routers.analytics import _build_briefing_prompt, _data_summary
+                ai = AIService(db)
+                prompt = _build_briefing_prompt(data)
+                narrative = await ai._call_claude(
+                    prompt=prompt,
+                    purpose="daily_briefing",
+                    entity_type="system",
+                    max_tokens=2000,
+                )
+                content = json.dumps({"narrative": narrative, "data_snapshot": _data_summary(data)})
+            except Exception as ai_exc:
+                logger.warning("briefing_task_ai_skipped", reason=str(ai_exc))
+                from app.routers.analytics import _data_summary
+                content = json.dumps({"narrative": None, "data_snapshot": _data_summary(data)})
+
+            briefing = DailyBriefing(date=today, content=content)
             db.add(briefing)
             await db.commit()
 
