@@ -15,6 +15,8 @@ from app.models.activity import Activity, ActivityType, ActivityEntityType  # no
 from app.models.revenue import Revenue, RevenueType  # noqa: F401
 from app.models.audit import AuditLog  # noqa: F401
 from app.models.analytics import AnalyticsEvent, ScoringWeightVersion, DailyBriefing  # noqa: F401
+from app.models.ai_log import AICallLog  # noqa: F401
+from app.models.workflow import WorkflowDefinition, WorkflowExecution, WorkflowActionLog  # noqa: F401
 
 __all__ = [
     "Base",
@@ -47,4 +49,8 @@ __all__ = [
     "AnalyticsEvent",
     "ScoringWeightVersion",
     "DailyBriefing",
+    "AICallLog",
+    "WorkflowDefinition",
+    "WorkflowExecution",
+    "WorkflowActionLog",
 ]

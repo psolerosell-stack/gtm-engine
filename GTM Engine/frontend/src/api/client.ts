@@ -119,6 +119,54 @@ export const partnersApi = {
   recalculateScore: (id: string) => apiClient.post<ScoreBreakdown>(`/partners/${id}/score/recalculate`),
 };
 
+export interface Account {
+  id: string;
+  name: string;
+  industry?: string;
+  size?: number;
+  geography?: string;
+  website?: string;
+  erp_ecosystem?: string;
+  description?: string;
+  fit_summary?: string;
+  enrichment_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Activity {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  type: string;
+  date: string;
+  owner?: string;
+  notes?: string;
+  outcome?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Accounts ──────────────────────────────────────────────────────────────────
+export const accountsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Account>>("/accounts", { params }),
+  get: (id: string) => apiClient.get<Account>(`/accounts/${id}`),
+  enrich: (id: string, force = false) =>
+    apiClient.post(`/accounts/${id}/enrich`, { force }),
+  getEnrichmentStatus: (id: string) =>
+    apiClient.get(`/accounts/${id}/enrichment`),
+};
+
+// ── Activities ────────────────────────────────────────────────────────────────
+export const activitiesApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<Activity[]>("/activities", { params }),
+  create: (data: Partial<Activity>) =>
+    apiClient.post<Activity>("/activities", data),
+  get: (id: string) => apiClient.get<Activity>(`/activities/${id}`),
+};
+
 // ── Opportunities ─────────────────────────────────────────────────────────────
 export const opportunitiesApi = {
   list: (params?: Record<string, string | number | undefined>) =>

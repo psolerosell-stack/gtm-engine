@@ -1,4 +1,3 @@
-import React from "react";
 import { clsx } from "clsx";
 
 function scoreColor(score: number): string {

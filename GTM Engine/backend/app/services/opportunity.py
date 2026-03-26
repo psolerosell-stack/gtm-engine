@@ -162,9 +162,29 @@ class OpportunityService:
             user_email=user_email,
         )
 
+        old_stage = old_values.get("stage")
+        new_stage = opp.stage
+
         await self.db.commit()
         await self.db.refresh(opp)
         logger.info("opportunity_updated", opp_id=str(opp_id), stage=opp.stage)
+
+        if old_stage != new_stage:
+            base_data = {
+                "opportunity_id": str(opp.id),
+                "opportunity_name": opp.name,
+                "previous_stage": old_stage,
+                "new_stage": new_stage,
+                "arr_value": opp.arr_value or 0,
+                "close_reason": opp.close_reason or "",
+                "partner_id": str(opp.partner_id) if opp.partner_id else "",
+            }
+            await self._fire_trigger("opportunity_stage_changed", "opportunity", opp.id, base_data)
+            if new_stage == OpportunityStage.closed_won:
+                await self._fire_trigger("deal_closed_won", "opportunity", opp.id, base_data)
+            elif new_stage == OpportunityStage.closed_lost:
+                await self._fire_trigger("deal_closed_lost", "opportunity", opp.id, base_data)
+
         return opp
 
     async def delete(
@@ -192,6 +212,27 @@ class OpportunityService:
         await self.db.commit()
         logger.info("opportunity_soft_deleted", opp_id=str(opp_id))
         return True
+
+    async def _fire_trigger(
+        self,
+        trigger_type: str,
+        entity_type: str,
+        entity_id: uuid.UUID,
+        trigger_data: dict,
+    ) -> None:
+        try:
+            from app.services.workflow.engine import workflow_engine
+            from app.services.workflow.triggers import TriggerType as TT
+            await workflow_engine.fire(
+                trigger_type=TT(trigger_type),
+                entity_type=entity_type,
+                entity_id=entity_id,
+                trigger_data=trigger_data,
+                db=self.db,
+            )
+            await self.db.commit()
+        except Exception as exc:
+            logger.warning("workflow_trigger_failed", trigger_type=trigger_type, error=str(exc))
 
     async def get_pipeline_summary(self) -> dict:
         """Return stage distribution and total ARR per stage."""

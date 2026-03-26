@@ -1,4 +1,3 @@
-import React from "react";
 import { clsx } from "clsx";
 
 const STAGE_STYLES: Record<string, string> = {

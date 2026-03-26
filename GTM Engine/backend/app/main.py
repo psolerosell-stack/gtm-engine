@@ -37,6 +37,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await create_all_tables()
         logger.info("sqlite_tables_created")
 
+    # Seed the 9 system workflow definitions (idempotent)
+    try:
+        from app.database import get_session_factory
+        from app.services.workflow.engine import workflow_engine as wf_engine
+        factory = get_session_factory()
+        async with factory() as db:
+            seeded = await wf_engine.seed_system_workflows(db)
+            if seeded:
+                logger.info("workflow_system_seeded", count=seeded)
+    except Exception as exc:
+        logger.warning("workflow_seed_failed", error=str(exc))
+
     yield
 
     await dispose_engine()
@@ -98,6 +110,9 @@ from app.routers.partners import router as partners_router
 from app.routers.opportunities import router as opportunities_router
 from app.routers.accounts import router as accounts_router
 from app.routers.scoring import router as scoring_router
+from app.routers.ai import router as ai_router
+from app.routers.workflows import router as workflows_router
+from app.routers.activities import router as activities_router
 
 API_PREFIX = "/api/v1"
 
@@ -106,6 +121,9 @@ app.include_router(accounts_router, prefix=API_PREFIX)
 app.include_router(partners_router, prefix=API_PREFIX)
 app.include_router(opportunities_router, prefix=API_PREFIX)
 app.include_router(scoring_router, prefix=API_PREFIX)
+app.include_router(ai_router, prefix=API_PREFIX)
+app.include_router(workflows_router, prefix=API_PREFIX)
+app.include_router(activities_router, prefix=API_PREFIX)
 
 
 # ── Health check ─────────────────────────────────────────────────────────────

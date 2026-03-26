@@ -7,7 +7,7 @@ celery_app = Celery(
     "gtm_engine",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["app.tasks.scoring", "app.tasks.briefing"],
+    include=["app.tasks.scoring", "app.tasks.briefing", "app.tasks.workflow", "app.tasks.enrichment"],
 )
 
 celery_app.conf.update(
@@ -29,6 +29,16 @@ celery_app.conf.update(
         "generate-daily-briefing": {
             "task": "app.tasks.briefing.generate_daily_briefing",
             "schedule": crontab(hour=8, minute=0),
+        },
+        # Check partner inactivity daily at 7am
+        "check-partner-inactivity": {
+            "task": "app.tasks.workflow.check_partner_inactivity",
+            "schedule": crontab(hour=7, minute=0),
+        },
+        # Check partners not converted daily at 7:05am
+        "check-partners-not-converted": {
+            "task": "app.tasks.workflow.check_partners_not_converted",
+            "schedule": crontab(hour=7, minute=5),
         },
     },
 )

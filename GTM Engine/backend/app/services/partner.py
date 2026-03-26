@@ -69,6 +69,11 @@ class PartnerService:
         await self.db.commit()
         await self.db.refresh(partner)
         logger.info("partner_created", partner_id=str(partner.id), score=score, tier=partner.tier)
+
+        await self._fire_trigger(
+            "partner_created", "partner", partner.id,
+            {"partner_id": str(partner.id), "score": score, "tier": partner.tier},
+        )
         return partner
 
     async def get(self, partner_id: uuid.UUID, load_account: bool = False) -> Optional[Partner]:
@@ -170,6 +175,12 @@ class PartnerService:
         await self.db.commit()
         await self.db.refresh(partner)
         logger.info("partner_updated", partner_id=str(partner_id), score=score, tier=partner.tier)
+
+        old_score = float(old_values.get("icp_score") or 0)
+        await self._fire_trigger(
+            "score_threshold_reached", "partner", partner.id,
+            {"score": score, "previous_score": old_score, "tier": partner.tier},
+        )
         return partner
 
     async def delete(
@@ -197,6 +208,28 @@ class PartnerService:
         await self.db.commit()
         logger.info("partner_soft_deleted", partner_id=str(partner_id))
         return True
+
+    async def _fire_trigger(
+        self,
+        trigger_type: str,
+        entity_type: str,
+        entity_id: uuid.UUID,
+        trigger_data: dict,
+    ) -> None:
+        """Fire a workflow trigger — never raises; failures are logged and swallowed."""
+        try:
+            from app.services.workflow.engine import workflow_engine
+            from app.services.workflow.triggers import TriggerType as TT
+            await workflow_engine.fire(
+                trigger_type=TT(trigger_type),
+                entity_type=entity_type,
+                entity_id=entity_id,
+                trigger_data=trigger_data,
+                db=self.db,
+            )
+            await self.db.commit()
+        except Exception as exc:
+            logger.warning("workflow_trigger_failed", trigger_type=trigger_type, error=str(exc))
 
     async def get_score_history(
         self, partner_id: uuid.UUID, limit: int = 50
