@@ -194,32 +194,34 @@ export default function Analytics() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Revenue intelligence & GTM overview</p>
+        <p className="text-slate-500 text-sm mt-0.5">Partner performance & revenue intelligence</p>
       </div>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
-          label="Total ARR"
-          value={kpisLoading ? "—" : fmt(kpis?.total_arr ?? 0)}
-          accent="green"
+          label="Active Partners"
+          value={kpisLoading ? "—" : String(kpis?.active_partners ?? 0)}
+          sub={`${kpis?.total_partners ?? 0} en total`}
+          accent="amber"
         />
         <KpiCard
-          label="ARR Last 30d"
-          value={kpisLoading ? "—" : fmt(kpis?.arr_last_30d ?? 0)}
+          label="Avg ICP Score"
+          value={kpisLoading ? "—" : String(kpis?.avg_icp_score ?? 0)}
+          sub="sobre 100"
           accent="blue"
         />
         <KpiCard
           label="Open Pipeline"
           value={kpisLoading ? "—" : fmt(kpis?.open_pipeline_arr ?? 0)}
-          sub={`${kpis?.open_deals ?? 0} deals`}
+          sub={`${kpis?.open_deals ?? 0} deals activos`}
           accent="blue"
         />
         <KpiCard
-          label="Active Partners"
-          value={kpisLoading ? "—" : String(kpis?.active_partners ?? 0)}
-          sub={`Avg ICP: ${kpis?.avg_icp_score ?? 0}`}
-          accent="amber"
+          label="Total ARR"
+          value={kpisLoading ? "—" : fmt(kpis?.total_arr ?? 0)}
+          sub={`+${fmt(kpis?.arr_last_30d ?? 0)} últimos 30d`}
+          accent="green"
         />
       </div>
 

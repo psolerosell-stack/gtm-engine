@@ -4,14 +4,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          900: "#1e3a8a",
+        navy: {
+          950: "#0A0F1E",
+          900: "#0F1629",
+          800: "#1A2340",
+          700: "#243158",
+          600: "#2E3F70",
+          500: "#3B4F88",
         },
+        muted: "#8892A4",
+        accent: {
+          green: "#22C55E",
+          blue:  "#3B82F6",
+          amber: "#F59E0B",
+          red:   "#EF4444",
+        },
+      },
+      fontFamily: {
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
     },
   },

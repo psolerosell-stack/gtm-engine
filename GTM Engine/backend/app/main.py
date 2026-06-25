@@ -28,6 +28,79 @@ structlog.configure(
 logger = structlog.get_logger(__name__)
 
 
+async def _seed_defaults() -> None:
+    """Seed default pipeline stages and app settings (idempotent)."""
+    import json
+    from sqlalchemy import select
+    from app.database import get_session_factory
+    from app.models.settings import AppSetting, PipelineStage, OnboardingStep
+
+    DEFAULT_STAGES = [
+        {"name": "Prospecting",   "slug": "prospecting",   "probability": 10, "color": "#6B7280", "rotting_days": 30,  "is_won": False, "is_lost": False},
+        {"name": "Qualification", "slug": "qualification", "probability": 25, "color": "#3B82F6", "rotting_days": 21,  "is_won": False, "is_lost": False},
+        {"name": "Discovery",     "slug": "discovery",     "probability": 40, "color": "#8B5CF6", "rotting_days": 21,  "is_won": False, "is_lost": False},
+        {"name": "Demo",          "slug": "demo",          "probability": 60, "color": "#F59E0B", "rotting_days": 14,  "is_won": False, "is_lost": False},
+        {"name": "Proposal",      "slug": "proposal",      "probability": 75, "color": "#EF4444", "rotting_days": 14,  "is_won": False, "is_lost": False},
+        {"name": "Negotiation",   "slug": "negotiation",   "probability": 90, "color": "#EC4899", "rotting_days": 10,  "is_won": False, "is_lost": False},
+        {"name": "Closed Won",    "slug": "closed_won",    "probability": 100,"color": "#10B981", "rotting_days": None,"is_won": True,  "is_lost": False},
+        {"name": "Closed Lost",   "slug": "closed_lost",   "probability": 0,  "color": "#374151", "rotting_days": None,"is_won": False, "is_lost": True},
+    ]
+
+    DEFAULT_SETTINGS = {
+        "icp_weights": {
+            "erp_ecosystem_fit": 0.20,
+            "partner_type_match": 0.15,
+            "capacity_score": 0.15,
+            "geography_match": 0.10,
+            "vertical_fit": 0.10,
+            "company_size": 0.10,
+            "arr_potential": 0.10,
+            "activation_velocity": 0.10,
+        },
+        "company_context": "",
+        "tier_thresholds": {"platinum": 85, "gold": 70, "silver": 50},
+        "partner_types": ["Referral", "Reseller", "VAR", "Delivery"],
+        "alerts": {
+            "rotting_deal": {"enabled": True, "channel": "in_app"},
+            "score_drop": {"enabled": True, "threshold": 10, "channel": "in_app"},
+            "tier_change": {"enabled": True, "channel": "in_app"},
+            "onboarding_stalled": {"enabled": True, "days": 7, "channel": "in_app"},
+        },
+    }
+
+    DEFAULT_ONBOARDING_STEPS = [
+        {"name": "Contrato firmado",          "description": "El acuerdo de partner está firmado y archivado.", "position": 0},
+        {"name": "Acceso al portal",          "description": "Partner tiene acceso al portal de partners.",       "position": 1},
+        {"name": "Sesión de kickoff",         "description": "Primera reunión de alineación completada.",         "position": 2},
+        {"name": "Formación de producto",     "description": "El partner ha completado la formación inicial.",   "position": 3},
+        {"name": "Demo técnica validada",     "description": "El partner puede realizar una demo autónoma.",     "position": 4},
+        {"name": "Primera oportunidad abierta","description": "Al menos una oportunidad registrada en el CRM.",  "position": 5},
+    ]
+
+    factory = get_session_factory()
+    async with factory() as db:
+        # Seed pipeline stages
+        for i, s in enumerate(DEFAULT_STAGES):
+            result = await db.execute(select(PipelineStage).where(PipelineStage.slug == s["slug"]))
+            if result.scalar_one_or_none() is None:
+                db.add(PipelineStage(position=i, required_fields="[]", **s))
+
+        # Seed default settings (only if key doesn't exist)
+        for key, value in DEFAULT_SETTINGS.items():
+            result = await db.execute(select(AppSetting).where(AppSetting.key == key))
+            if result.scalar_one_or_none() is None:
+                db.add(AppSetting(key=key, value=json.dumps(value)))
+
+        # Seed default onboarding steps
+        for s in DEFAULT_ONBOARDING_STEPS:
+            result = await db.execute(select(OnboardingStep).where(OnboardingStep.name == s["name"]))
+            if result.scalar_one_or_none() is None:
+                db.add(OnboardingStep(is_required=True, is_active=True, **s))
+
+        await db.commit()
+    logger.info("defaults_seeded")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("gtm_engine_starting", env=settings.app_env, version=settings.app_version)
@@ -48,6 +121,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 logger.info("workflow_system_seeded", count=seeded)
     except Exception as exc:
         logger.warning("workflow_seed_failed", error=str(exc))
+
+    # Seed default pipeline stages and settings (idempotent)
+    try:
+        from app.database import get_session_factory
+        await _seed_defaults()
+    except Exception as exc:
+        logger.warning("defaults_seed_failed", error=str(exc))
+
+    # Run initial alert evaluation
+    try:
+        from app.database import get_session_factory
+        from app.services.alerts import evaluate_alerts
+        factory = get_session_factory()
+        async with factory() as db:
+            await evaluate_alerts(db)
+    except Exception as exc:
+        logger.warning("alerts_evaluation_failed", error=str(exc))
 
     yield
 
@@ -115,6 +205,12 @@ from app.routers.workflows import router as workflows_router
 from app.routers.activities import router as activities_router
 from app.routers.revenue import router as revenue_router
 from app.routers.analytics import router as analytics_router
+from app.routers.leads import router as leads_router
+from app.routers.contacts import router as contacts_router
+from app.routers.campaigns import router as campaigns_router
+from app.routers.integrations import router as integrations_router
+from app.routers.settings import router as settings_router
+from app.routers.notifications import router as notifications_router
 
 API_PREFIX = "/api/v1"
 
@@ -128,6 +224,12 @@ app.include_router(workflows_router, prefix=API_PREFIX)
 app.include_router(activities_router, prefix=API_PREFIX)
 app.include_router(revenue_router, prefix=API_PREFIX)
 app.include_router(analytics_router, prefix=API_PREFIX)
+app.include_router(leads_router, prefix=API_PREFIX)
+app.include_router(contacts_router, prefix=API_PREFIX)
+app.include_router(campaigns_router, prefix=API_PREFIX)
+app.include_router(integrations_router, prefix=API_PREFIX)
+app.include_router(settings_router, prefix=API_PREFIX)
+app.include_router(notifications_router, prefix=API_PREFIX)
 
 
 # ── Health check ─────────────────────────────────────────────────────────────

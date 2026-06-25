@@ -62,7 +62,7 @@ class DiscoverRequest(BaseSchema):
     profile: str = Field(
         ...,
         min_length=20,
-        max_length=2000,
+        max_length=10000,
         description="Natural language description of the ideal partner profile",
     )
     count: int = Field(default=15, ge=5, le=30)

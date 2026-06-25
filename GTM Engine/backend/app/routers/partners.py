@@ -21,7 +21,7 @@ from app.services.scoring import compute_icp_score, tier_from_score
 router = APIRouter(prefix="/partners", tags=["partners"])
 
 
-@router.get("", response_model=PaginatedResponse[PartnerRead])
+@router.get("", response_model=PaginatedResponse[PartnerReadWithAccount])
 async def list_partners(
     current_user: CurrentUser,
     db: DBSession,
@@ -32,7 +32,7 @@ async def list_partners(
     status: Optional[str] = Query(default=None),
     geography: Optional[str] = Query(default=None),
     min_score: Optional[float] = Query(default=None, ge=0, le=100),
-) -> PaginatedResponse[PartnerRead]:
+) -> PaginatedResponse[PartnerReadWithAccount]:
     service = PartnerService(db)
     partners, total = await service.list(
         page=page,
@@ -42,10 +42,10 @@ async def list_partners(
         status_filter=status,
         geography_filter=geography,
         min_score=min_score,
-        load_account=False,
+        load_account=True,
     )
     return PaginatedResponse(
-        items=[PartnerRead.model_validate(p) for p in partners],
+        items=[PartnerReadWithAccount.model_validate(p) for p in partners],
         total=total,
         page=page,
         page_size=page_size,
@@ -148,6 +148,131 @@ async def recalculate_partner_score(
     score, breakdown = scoring_engine.score(partner, account, weights)
     tier = scoring_engine.tier(score)
     return ScoreBreakdown(total=score, tier=tier, dimensions=breakdown)
+
+
+@router.get("/{partner_id}/onboarding")
+async def get_partner_onboarding(
+    partner_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """Return all active onboarding steps with completion status for this partner."""
+    from sqlalchemy import select, or_
+    from app.models.settings import OnboardingStep, PartnerOnboardingProgress
+    from app.models.partner import Partner
+
+    # Verify partner exists
+    service = PartnerService(db)
+    partner = await service.get(partner_id)
+    if partner is None:
+        raise HTTPException(status_code=404, detail="Partner not found")
+
+    # Load active steps (all types + partner-specific)
+    steps_result = await db.execute(
+        select(OnboardingStep)
+        .where(
+            OnboardingStep.is_active.is_(True),
+            or_(OnboardingStep.partner_type == partner.type, OnboardingStep.partner_type.is_(None)),
+        )
+        .order_by(OnboardingStep.position)
+    )
+    steps = steps_result.scalars().all()
+
+    # Load completions for this partner
+    completions_result = await db.execute(
+        select(PartnerOnboardingProgress).where(
+            PartnerOnboardingProgress.partner_id == partner_id
+        )
+    )
+    completions = {str(c.step_id): c for c in completions_result.scalars().all()}
+
+    items = []
+    for step in steps:
+        completion = completions.get(str(step.id))
+        items.append({
+            "step_id": str(step.id),
+            "name": step.name,
+            "description": step.description,
+            "partner_type": step.partner_type,
+            "position": step.position,
+            "is_required": step.is_required,
+            "completed": completion is not None and completion.completed_at is not None,
+            "completed_at": completion.completed_at.isoformat() if completion and completion.completed_at else None,
+            "completed_by": completion.completed_by if completion else None,
+        })
+
+    completed_count = sum(1 for i in items if i["completed"])
+    return {
+        "partner_id": str(partner_id),
+        "steps": items,
+        "total": len(items),
+        "completed": completed_count,
+        "progress_pct": round(completed_count / len(items) * 100) if items else 0,
+    }
+
+
+@router.post("/{partner_id}/onboarding/{step_id}")
+async def complete_onboarding_step(
+    partner_id: uuid.UUID,
+    step_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """Mark an onboarding step as completed for this partner."""
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from app.models.settings import PartnerOnboardingProgress
+
+    service = PartnerService(db)
+    if await service.get(partner_id) is None:
+        raise HTTPException(status_code=404, detail="Partner not found")
+
+    result = await db.execute(
+        select(PartnerOnboardingProgress).where(
+            PartnerOnboardingProgress.partner_id == partner_id,
+            PartnerOnboardingProgress.step_id == step_id,
+        )
+    )
+    progress = result.scalar_one_or_none()
+    now = datetime.now(timezone.utc)
+
+    if progress:
+        progress.completed_at = now
+        progress.completed_by = current_user.email
+    else:
+        db.add(PartnerOnboardingProgress(
+            partner_id=partner_id,
+            step_id=step_id,
+            completed_at=now,
+            completed_by=current_user.email,
+        ))
+
+    await db.commit()
+    return {"status": "completed", "step_id": str(step_id)}
+
+
+@router.delete("/{partner_id}/onboarding/{step_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def uncomplete_onboarding_step(
+    partner_id: uuid.UUID,
+    step_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DBSession,
+):
+    """Unmark a completed onboarding step."""
+    from sqlalchemy import select
+    from app.models.settings import PartnerOnboardingProgress
+
+    result = await db.execute(
+        select(PartnerOnboardingProgress).where(
+            PartnerOnboardingProgress.partner_id == partner_id,
+            PartnerOnboardingProgress.step_id == step_id,
+        )
+    )
+    progress = result.scalar_one_or_none()
+    if progress:
+        progress.completed_at = None
+        progress.completed_by = None
+        await db.commit()
 
 
 @router.get("/{partner_id}/score/history", response_model=list[ScoreHistoryRead])

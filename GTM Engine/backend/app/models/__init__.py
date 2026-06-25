@@ -17,6 +17,8 @@ from app.models.audit import AuditLog  # noqa: F401
 from app.models.analytics import AnalyticsEvent, ScoringWeightVersion, DailyBriefing  # noqa: F401
 from app.models.ai_log import AICallLog  # noqa: F401
 from app.models.workflow import WorkflowDefinition, WorkflowExecution, WorkflowActionLog  # noqa: F401
+from app.models.settings import AppSetting, PipelineStage, OnboardingStep, PartnerOnboardingProgress  # noqa: F401
+from app.models.notification import Notification  # noqa: F401
 
 __all__ = [
     "Base",
@@ -53,4 +55,9 @@ __all__ = [
     "WorkflowDefinition",
     "WorkflowExecution",
     "WorkflowActionLog",
+    "AppSetting",
+    "PipelineStage",
+    "OnboardingStep",
+    "PartnerOnboardingProgress",
+    "Notification",
 ]

@@ -235,12 +235,19 @@ async def discover_accounts(
     Given a natural language partner profile description, return a list of
     10-20 suggested companies to research as potential partners.
     """
+    import json as _json
+    from fastapi import HTTPException
     try:
         service = AIService(db)
         companies = await service.discover_accounts(body.profile, count=body.count)
         await db.commit()
     except AIServiceUnavailableError as exc:
         raise _unavailable_error(exc)
+    except (_json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Claude returned invalid JSON: {exc}",
+        )
 
     return DiscoverResponse(
         profile=body.profile,

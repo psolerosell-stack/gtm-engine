@@ -52,10 +52,14 @@ def _extract_json(text: str) -> Any:
     Handles fenced code blocks (```json ... ```) and bare JSON.
     """
     text = text.strip()
+    if not text:
+        raise ValueError("Claude returned an empty response")
     if text.startswith("```"):
         start = text.find("\n") + 1
         end = text.rfind("```")
         text = text[start:end].strip()
+    if not text:
+        raise ValueError("Claude returned an empty code block")
     return json.loads(text)
 
 
@@ -373,12 +377,13 @@ Prompt-version: {PROMPT_VERSION}"""
         """
         prompt = f"""You are a B2B partnerships researcher. Your company sells AP/AR automation SaaS integrated with: Sage 200, Sage X3, SAP Business One, Microsoft Business Central, Holded, and Netsuite.
 
-Based on the following ideal partner profile, suggest {count} real companies (primarily ERP resellers, VARs, implementation partners, or technology alliances) that match the profile. Focus on companies in Spain and LATAM unless the profile specifies otherwise.
+A user has described the type of partner they are looking for. Based on this description, suggest {count} real companies (primarily ERP resellers, VARs, implementation partners, or technology alliances) that match the profile. Focus on companies in Spain and LATAM unless the description specifies otherwise.
 
-Target profile:
+<partner_profile>
 {profile_description}
+</partner_profile>
 
-Respond ONLY with valid JSON array (no commentary):
+Output ONLY a valid JSON array — no explanation, no commentary, no markdown prose before or after:
 [
   {{
     "name": "<company name>",
@@ -391,7 +396,7 @@ Respond ONLY with valid JSON array (no commentary):
   }}
 ]
 
-Return exactly {count} suggestions, ordered by estimated fit score descending.
+Return exactly {count} items, ordered by fit_score_estimate descending. Start your response with `[`.
 Prompt-version: {PROMPT_VERSION}"""
 
         response_text = await self._call_claude(
@@ -399,7 +404,7 @@ Prompt-version: {PROMPT_VERSION}"""
             purpose="discover",
             entity_type=None,
             entity_id=None,
-            max_tokens=3000,
+            max_tokens=5000,
         )
 
         try:
@@ -407,8 +412,13 @@ Prompt-version: {PROMPT_VERSION}"""
             if not isinstance(companies, list):
                 raise ValueError("Expected JSON array")
         except (json.JSONDecodeError, ValueError) as exc:
-            logger.warning("discover_accounts_parse_error", error=str(exc))
-            companies = []
+            logger.warning(
+                "discover_accounts_parse_error",
+                error=str(exc),
+                response_preview=response_text[:300],
+            )
+            # Re-raise so the router can return a proper error instead of silent []
+            raise
 
         return companies
 

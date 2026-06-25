@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
 
 export function Login() {
@@ -16,51 +17,67 @@ export function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/pipeline");
+      navigate("/dashboard");
     } catch {
-      setError("Invalid email or password");
+      setError("Email o contraseña incorrectos");
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">GTM Engine</h1>
-        <p className="text-sm text-gray-500 mb-6">Sign in to your account</p>
+  const INPUT = "w-full bg-navy-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent";
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="you@company.io"
-            />
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-navy-900">
+      <div className="w-full max-w-sm px-4">
+        {/* Logo */}
+        <div className="flex items-center gap-3 justify-center mb-8">
+          <div className="w-9 h-9 rounded-xl bg-accent-blue flex items-center justify-center">
+            <BarChart3 size={18} className="text-white" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg py-2 text-sm transition-colors disabled:opacity-50"
-          >
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
+          <span className="text-xl font-bold text-white tracking-tight">Partner OS</span>
+        </div>
+
+        <div className="bg-navy-800 border border-white/10 rounded-2xl p-8 shadow-2xl">
+          <h1 className="text-lg font-semibold text-white mb-1">Bienvenido</h1>
+          <p className="text-sm text-white/40 mb-6">Accede a tu cuenta</p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-white/50 mb-1">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={INPUT}
+                placeholder="tu@empresa.io"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-white/50 mb-1">Contraseña</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={INPUT}
+              />
+            </div>
+
+            {error && (
+              <p className="text-xs text-accent-red bg-accent-red/10 rounded-lg px-3 py-2">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-accent-blue hover:bg-blue-600 text-white font-medium rounded-lg py-2.5 text-sm transition-colors disabled:opacity-50"
+            >
+              {loading ? "Iniciando sesión…" : "Iniciar sesión"}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

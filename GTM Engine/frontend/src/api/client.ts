@@ -58,6 +58,10 @@ export interface Partner {
   fit_summary?: string;
   approach_suggestion?: string;
   notes?: string;
+  contract_start?: string;
+  contract_end?: string;
+  rappel_structure?: string;
+  hubspot_company_id?: string;
   created_at: string;
   updated_at: string;
   account?: {
@@ -107,6 +111,26 @@ export const authApi = {
 };
 
 // ── Partners ─────────────────────────────────────────────────────────────────
+export interface OnboardingStepProgress {
+  step_id: string;
+  name: string;
+  description: string | null;
+  partner_type: string | null;
+  position: number;
+  is_required: boolean;
+  completed: boolean;
+  completed_at: string | null;
+  completed_by: string | null;
+}
+
+export interface PartnerOnboardingResponse {
+  partner_id: string;
+  steps: OnboardingStepProgress[];
+  total: number;
+  completed: number;
+  progress_pct: number;
+}
+
 export const partnersApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Partner>>("/partners", { params }),
@@ -117,6 +141,9 @@ export const partnersApi = {
   getScore: (id: string) => apiClient.get<ScoreBreakdown>(`/partners/${id}/score`),
   getScoreHistory: (id: string) => apiClient.get(`/partners/${id}/score/history`),
   recalculateScore: (id: string) => apiClient.post<ScoreBreakdown>(`/partners/${id}/score/recalculate`),
+  getOnboarding: (id: string) => apiClient.get<PartnerOnboardingResponse>(`/partners/${id}/onboarding`),
+  completeStep: (partnerId: string, stepId: string) => apiClient.post(`/partners/${partnerId}/onboarding/${stepId}`),
+  uncompleteStep: (partnerId: string, stepId: string) => apiClient.delete(`/partners/${partnerId}/onboarding/${stepId}`),
 };
 
 export interface Account {
@@ -178,6 +205,16 @@ export const opportunitiesApi = {
   delete: (id: string) => apiClient.delete(`/opportunities/${id}`),
   pipelineSummary: () =>
     apiClient.get<Record<string, { count: number; total_arr: number }>>("/opportunities/pipeline/summary"),
+  enrich: (id: string) =>
+    apiClient.post<{
+      status: string;
+      enrichment: {
+        summary?: string;
+        fit_analysis?: string;
+        signals?: string[];
+        next_action?: string;
+      };
+    }>(`/opportunities/${id}/enrich`),
 };
 
 // ── Revenue ───────────────────────────────────────────────────────────────────
@@ -296,4 +333,321 @@ export const analyticsApi = {
     apiClient.get<MonthlyARR[]>("/analytics/revenue/trends", { params: { months } }),
   briefingToday: () => apiClient.get<DailyBriefing>("/analytics/briefing/today"),
   generateBriefing: () => apiClient.post<DailyBriefing>("/analytics/briefing/generate"),
+};
+
+// ── Leads ─────────────────────────────────────────────────────────────────────
+
+export interface Lead {
+  id: string;
+  account_id: string;
+  partner_id?: string;
+  source: string;
+  status: string;
+  notes?: string;
+  hubspot_contact_id?: string;
+  created_at: string;
+  updated_at: string;
+  account?: { id: string; name: string } | null;
+  partner?: { id: string; type: string; tier: string } | null;
+}
+
+export interface LeadCreate {
+  account_id: string;
+  partner_id?: string;
+  source?: string;
+  status?: string;
+  notes?: string;
+}
+
+export const leadsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Lead>>("/leads", { params }),
+  get: (id: string) => apiClient.get<Lead>(`/leads/${id}`),
+  summary: () => apiClient.get<Record<string, number>>("/leads/summary"),
+  create: (data: LeadCreate) => apiClient.post<Lead>("/leads", data),
+  update: (id: string, data: Partial<LeadCreate>) => apiClient.patch<Lead>(`/leads/${id}`, data),
+  delete: (id: string) => apiClient.delete(`/leads/${id}`),
+};
+
+// ── Contacts ──────────────────────────────────────────────────────────────────
+
+export interface Contact {
+  id: string;
+  account_id: string;
+  name: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  linkedin?: string;
+  last_activity?: string;
+  notes?: string;
+  hubspot_contact_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContactCreate {
+  account_id: string;
+  name: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  linkedin?: string;
+  notes?: string;
+}
+
+export const contactsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Contact>>("/contacts", { params }),
+  get: (id: string) => apiClient.get<Contact>(`/contacts/${id}`),
+  create: (data: ContactCreate) => apiClient.post<Contact>("/contacts", data),
+  update: (id: string, data: Partial<ContactCreate>) =>
+    apiClient.patch<Contact>(`/contacts/${id}`, data),
+  delete: (id: string) => apiClient.delete(`/contacts/${id}`),
+};
+
+// ── Campaigns ─────────────────────────────────────────────────────────────────
+
+export interface Campaign {
+  id: string;
+  name: string;
+  type: string;
+  channel?: string;
+  partner_id?: string;
+  start_date?: string;
+  end_date?: string;
+  leads_generated: number;
+  arr_attributed: number;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignCreate {
+  name: string;
+  type: string;
+  channel?: string;
+  partner_id?: string;
+  start_date?: string;
+  end_date?: string;
+  leads_generated?: number;
+  arr_attributed?: number;
+  description?: string;
+}
+
+export interface CampaignSummary {
+  total: number;
+  total_leads_generated: number;
+  total_arr_attributed: number;
+  by_type: Record<string, number>;
+}
+
+export const campaignsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Campaign>>("/campaigns", { params }),
+  get: (id: string) => apiClient.get<Campaign>(`/campaigns/${id}`),
+  summary: () => apiClient.get<CampaignSummary>("/campaigns/summary"),
+  create: (data: CampaignCreate) => apiClient.post<Campaign>("/campaigns", data),
+  update: (id: string, data: Partial<CampaignCreate>) =>
+    apiClient.patch<Campaign>(`/campaigns/${id}`, data),
+  delete: (id: string) => apiClient.delete(`/campaigns/${id}`),
+};
+
+// ── Integrations ──────────────────────────────────────────────────────────────
+
+export interface IntegrationStatus {
+  status: "configured" | "not_configured";
+  channel?: string;
+  model?: string;
+  portal_id?: string | null;
+  webhook_url?: string | null;
+  redirect_uri?: string;
+  client_id?: string | null;
+}
+
+export interface IntegrationsStatusResponse {
+  hubspot: IntegrationStatus;
+  slack: IntegrationStatus;
+  anthropic: IntegrationStatus;
+  google: IntegrationStatus;
+}
+
+export interface SyncResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  total: number;
+  error?: string;
+}
+
+export interface HubSpotSyncResponse {
+  status: string;
+  results: {
+    companies?: SyncResult;
+    contacts?: SyncResult;
+    deals?: SyncResult;
+  };
+}
+
+export interface AIPurposeStat {
+  purpose: string;
+  calls: number;
+  tokens: number;
+  cost_usd: number;
+}
+
+export interface AIStats {
+  period_days: number;
+  total_calls: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  avg_latency_ms: number;
+  failed_calls: number;
+  by_purpose: AIPurposeStat[];
+}
+
+export interface IntegrationConfigValues {
+  hubspot: { api_key?: string | null; portal_id?: string | null; webhook_secret?: string | null; pipeline_ids?: string | null };
+  slack: { bot_token?: string | null; channel?: string | null };
+  anthropic: { api_key?: string | null; model?: string | null };
+  google: { client_id?: string | null; client_secret?: string | null };
+}
+
+export interface HubSpotPipeline {
+  id: string;
+  label: string;
+  stages: number;
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────────
+
+export interface PipelineStage {
+  id: string;
+  name: string;
+  slug: string;
+  probability: number;
+  color: string;
+  rotting_days: number | null;
+  position: number;
+  required_fields: string[];
+  is_won: boolean;
+  is_lost: boolean;
+  is_active: boolean;
+}
+
+export interface OnboardingStep {
+  id: string;
+  name: string;
+  description: string | null;
+  partner_type: string | null;
+  position: number;
+  is_required: boolean;
+  is_active: boolean;
+}
+
+export interface AppSettings {
+  icp_weights?: Record<string, number>;
+  company_context?: string;
+  tier_thresholds?: { platinum: number; gold: number; silver: number };
+  partner_types?: string[];
+  alerts?: Record<string, { enabled: boolean; channel: string; threshold?: number; days?: number }>;
+  [key: string]: unknown;
+}
+
+export const settingsApi = {
+  get: () => apiClient.get<{ values: AppSettings }>("/settings"),
+  patch: (values: Record<string, unknown>) => apiClient.patch<{ values: AppSettings }>("/settings", { values }),
+  listPipelineStages: () => apiClient.get<PipelineStage[]>("/settings/pipeline-stages"),
+  createPipelineStage: (data: Partial<PipelineStage>) => apiClient.post<PipelineStage>("/settings/pipeline-stages", data),
+  updatePipelineStage: (id: string, data: Partial<PipelineStage>) => apiClient.patch<PipelineStage>(`/settings/pipeline-stages/${id}`, data),
+  deletePipelineStage: (id: string) => apiClient.delete(`/settings/pipeline-stages/${id}`),
+  reorderPipelineStages: (ids: string[]) => apiClient.post<PipelineStage[]>("/settings/pipeline-stages/reorder", { ids }),
+  listOnboardingSteps: (partner_type?: string) => apiClient.get<OnboardingStep[]>("/settings/onboarding-steps", { params: partner_type ? { partner_type } : {} }),
+  createOnboardingStep: (data: Partial<OnboardingStep>) => apiClient.post<OnboardingStep>("/settings/onboarding-steps", data),
+  updateOnboardingStep: (id: string, data: Partial<OnboardingStep>) => apiClient.patch<OnboardingStep>(`/settings/onboarding-steps/${id}`, data),
+  deleteOnboardingStep: (id: string) => apiClient.delete(`/settings/onboarding-steps/${id}`),
+  reorderOnboardingSteps: (ids: string[]) => apiClient.post<OnboardingStep[]>("/settings/onboarding-steps/reorder", { ids }),
+};
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export interface AppNotification {
+  id: string;
+  type: "rotting_deal" | "score_drop" | "tier_change" | "onboarding_stalled" | string;
+  title: string;
+  body: string | null;
+  entity_type: "opportunity" | "partner" | null;
+  entity_id: string | null;
+  read_at: string | null;
+  dismissed_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationsResponse {
+  items: AppNotification[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+  unread: number;
+}
+
+export const notificationsApi = {
+  count: () => apiClient.get<{ unread: number }>("/notifications/count"),
+  list: (params?: { page?: number; page_size?: number; include_dismissed?: boolean }) =>
+    apiClient.get<NotificationsResponse>("/notifications", { params }),
+  evaluate: () => apiClient.post<{ status: string; created: Record<string, number> }>("/notifications/evaluate"),
+  markRead: (id: string) => apiClient.post(`/notifications/${id}/read`),
+  dismiss: (id: string) => apiClient.post(`/notifications/${id}/dismiss`),
+  dismissAll: () => apiClient.post("/notifications/dismiss-all"),
+};
+
+// ── AI Copilot ────────────────────────────────────────────────────────────────
+
+export interface DiscoveredCompany {
+  name: string;
+  country?: string;
+  erp_ecosystem?: string;
+  company_type?: string;
+  reasoning: string;
+  fit_score_estimate?: number;
+  website_hint?: string;
+}
+
+export interface DiscoverResult {
+  profile: string;
+  count_requested: number;
+  companies: DiscoveredCompany[];
+}
+
+export interface PartnerIntelligenceResult {
+  partner_id: string;
+  fit_summary?: string;
+  approach_suggestion?: string;
+  queued: boolean;
+}
+
+export const aiApi = {
+  discover: (profile: string, count = 15) =>
+    apiClient.post<DiscoverResult>("/ai/discover", { profile, count }, { timeout: 120_000 }),
+  partnerIntelligence: (partnerId: string, force = false) =>
+    apiClient.post<PartnerIntelligenceResult>(`/partners/${partnerId}/intelligence`, { force }, { timeout: 60_000 }),
+};
+
+export const integrationsApi = {
+  status: () => apiClient.get<IntegrationsStatusResponse>("/integrations/status"),
+  hubspotSync: (entities: string[], limit = 100) =>
+    apiClient.post<HubSpotSyncResponse>("/integrations/hubspot/sync", { entities, limit }),
+  hubspotImport: (entities: string[], limit = 100, pipeline_id?: string) =>
+    apiClient.post<HubSpotSyncResponse>("/integrations/hubspot/import", { entities, limit, pipeline_id }),
+  slackTest: (message?: string) =>
+    apiClient.post("/integrations/slack/test", { message: message ?? "GTM Engine integration test!" }),
+  aiStats: (days = 30) =>
+    apiClient.get<AIStats>("/integrations/ai/stats", { params: { days } }),
+  googleStatus: () => apiClient.get("/integrations/google/status"),
+  getConfig: () => apiClient.get<IntegrationConfigValues>("/integrations/config"),
+  updateConfig: (updates: Record<string, string>) =>
+    apiClient.patch<{ updated: string[] }>("/integrations/config", { updates }),
+  getHubSpotPipelines: () => apiClient.get<HubSpotPipeline[]>("/integrations/hubspot/pipelines"),
 };

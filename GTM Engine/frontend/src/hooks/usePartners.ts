@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Partner, PaginatedResponse, partnersApi } from "@/api/client";
+import { Partner, PaginatedResponse, partnersApi, PartnerOnboardingResponse } from "@/api/client";
 
 const PARTNERS_KEY = "partners";
 
@@ -69,5 +69,32 @@ export function usePartnerScore(id: string) {
       return data;
     },
     enabled: Boolean(id),
+  });
+}
+
+export function usePartnerOnboarding(id: string) {
+  return useQuery<PartnerOnboardingResponse>({
+    queryKey: [PARTNERS_KEY, id, "onboarding"],
+    queryFn: async () => {
+      const { data } = await partnersApi.getOnboarding(id);
+      return data;
+    },
+    enabled: Boolean(id),
+  });
+}
+
+export function useCompleteOnboardingStep(partnerId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (stepId: string) => partnersApi.completeStep(partnerId, stepId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [PARTNERS_KEY, partnerId, "onboarding"] }),
+  });
+}
+
+export function useUncompleteOnboardingStep(partnerId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (stepId: string) => partnersApi.uncompleteStep(partnerId, stepId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [PARTNERS_KEY, partnerId, "onboarding"] }),
   });
 }

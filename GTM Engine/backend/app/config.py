@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     hubspot_api_key: Optional[str] = None
     hubspot_portal_id: Optional[str] = None
     hubspot_webhook_secret: Optional[str] = None
+    hubspot_pipeline_ids: Optional[str] = None  # comma-separated pipeline IDs to sync
 
     # Slack
     slack_bot_token: Optional[str] = None
